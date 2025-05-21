@@ -32,9 +32,11 @@ export function formatTimeAgo(dateString: string): string {
   return formatDate(date)
 }
 
-// Generate a random ID for deployments
+// Generate a random ID for deployments with timestamp to ensure uniqueness
 export function generateDeploymentId(): string {
-  return `dpl_${Math.random().toString(36).substring(2, 10)}`
+  const timestamp = Date.now()
+  const randomPart = Math.random().toString(36).substring(2, 10)
+  return `dpl_${timestamp}_${randomPart}`
 }
 
 // Generate a random commit hash

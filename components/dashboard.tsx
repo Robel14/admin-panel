@@ -18,8 +18,9 @@ import {
   GitBranch,
   RefreshCw,
   Search,
+  UserCog,
 } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ContentForm } from "@/components/content-form"
 import { DeploymentStatus } from "@/components/deployment-status"
@@ -29,6 +30,8 @@ import { getRecentContent, getContentStats, getDeployments, createDeployment } f
 import { formatTimeAgo, generateDeploymentId, generateCommitHash } from "@/lib/utils"
 import { ContentTable } from "@/components/content-table"
 import { WebsiteStats } from "@/components/website-stats"
+import { UserTable } from "@/components/user-table"
+import { WebsiteConnectionStatus } from "@/components/website-connection-status"
 import { siteConfig } from "@/config/site-config"
 
 export default function Dashboard() {
@@ -99,23 +102,33 @@ export default function Dashboard() {
         triggered_by: null, // In a real app with auth, this would be the current user's ID
       }
 
-      await createDeployment(deploymentData)
+      const createResult = await createDeployment(deploymentData)
+
+      if (!createResult.success) {
+        throw new Error(createResult.error)
+      }
 
       // Simulate deployment process
       setTimeout(async () => {
-        // Update deployment status to ready
-        const updatedDeploymentData = {
-          ...deploymentData,
-          status: "ready",
-        }
+        try {
+          // Update deployment status to ready
+          const updatedDeploymentData = {
+            ...deploymentData,
+            status: "ready",
+            deployment_id: createResult.data.deployment_id, // Use the ID from the created deployment
+          }
 
-        await createDeployment(updatedDeploymentData)
-        setIsDeploying(false)
+          await createDeployment(updatedDeploymentData)
 
-        // Refresh deployments list
-        const deploymentsResult = await getDeployments()
-        if (deploymentsResult.success) {
-          setDeployments(deploymentsResult.data || [])
+          // Refresh deployments list
+          const deploymentsResult = await getDeployments()
+          if (deploymentsResult.success) {
+            setDeployments(deploymentsResult.data || [])
+          }
+        } catch (error) {
+          console.error("Error updating deployment status:", error)
+        } finally {
+          setIsDeploying(false)
         }
       }, 3000)
     } catch (error) {
@@ -258,6 +271,23 @@ export default function Dashboard() {
                 {!isSidebarCollapsed && <span className="ml-2">Analytics</span>}
               </Button>
             </li>
+
+            {/* Add Users section */}
+            <li>
+              <Button
+                variant={activeTab === "users" ? "secondary" : "ghost"}
+                className={`w-full justify-start ${isSidebarCollapsed ? "px-2" : ""}`}
+                onClick={() => {
+                  setSelectedContentType(null)
+                  setShowContentTable(false)
+                  setActiveTab("users")
+                }}
+              >
+                <UserCog className="h-5 w-5" />
+                {!isSidebarCollapsed && <span className="ml-2">Users</span>}
+              </Button>
+            </li>
+
             <li>
               <Button
                 variant={activeTab === "settings" ? "secondary" : "ghost"}
@@ -299,7 +329,9 @@ export default function Dashboard() {
                         ? "Domains"
                         : activeTab === "analytics"
                           ? "Analytics"
-                          : "Settings"}
+                          : activeTab === "users"
+                            ? "User Management"
+                            : "Settings"}
             </h1>
             {deployments.length > 0 && <DeploymentStatus status={deployments[0]?.status || "ready"} />}
           </div>
@@ -398,75 +430,7 @@ export default function Dashboard() {
                       </CardContent>
                     </Card>
 
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Latest Deployment</CardTitle>
-                        <CardDescription>Status of your site</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {isLoading ? (
-                          <div className="space-y-4 animate-pulse">
-                            <div className="flex items-center gap-2 mb-4">
-                              <div className="h-4 w-16 bg-muted rounded"></div>
-                              <div className="h-4 w-24 bg-muted rounded"></div>
-                              <div className="h-4 w-20 bg-muted rounded ml-auto"></div>
-                            </div>
-                            <div className="space-y-2">
-                              <div className="flex justify-between">
-                                <div className="h-4 w-24 bg-muted rounded"></div>
-                                <div className="h-4 w-20 bg-muted rounded"></div>
-                              </div>
-                              <div className="flex justify-between">
-                                <div className="h-4 w-16 bg-muted rounded"></div>
-                                <div className="h-4 w-12 bg-muted rounded"></div>
-                              </div>
-                              <div className="flex justify-between">
-                                <div className="h-4 w-20 bg-muted rounded"></div>
-                                <div className="h-4 w-16 bg-muted rounded"></div>
-                              </div>
-                            </div>
-                          </div>
-                        ) : deployments.length > 0 ? (
-                          <>
-                            <div className="flex items-center gap-2 mb-4">
-                              <DeploymentStatus status={deployments[0].status} />
-                              <span className="font-medium">{deployments[0].type}</span>
-                              <span className="text-xs text-muted-foreground ml-auto">
-                                {formatTimeAgo(deployments[0].created_at)}
-                              </span>
-                            </div>
-                            <div className="text-sm space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Deployment ID:</span>
-                                <span className="font-mono">{deployments[0].deployment_id}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Branch:</span>
-                                <span>{deployments[0].branch}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Commit:</span>
-                                <span className="font-mono text-xs">{deployments[0].commit_hash}</span>
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="text-center py-4 text-muted-foreground">
-                            No deployments found. Click the Deploy button to create one.
-                          </div>
-                        )}
-                      </CardContent>
-                      <CardFooter className="pt-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => window.open(siteConfig.url, "_blank")}
-                        >
-                          Visit Website
-                        </Button>
-                      </CardFooter>
-                    </Card>
+                    <WebsiteConnectionStatus />
 
                     <WebsiteStats />
                   </div>
@@ -531,6 +495,24 @@ export default function Dashboard() {
                         No deployments found. Click the Deploy button to create one.
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Users Tab */}
+              {activeTab === "users" && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>User Management</CardTitle>
+                        <CardDescription>Manage users and their permissions</CardDescription>
+                      </div>
+                      <Button>Add User</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <UserTable />
                   </CardContent>
                 </Card>
               )}

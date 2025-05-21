@@ -26,4 +26,16 @@ export const siteConfig = {
     { label: "Projects Completed", value: "120+" },
     { label: "Regional Offices", value: "15+" },
   ],
+  colors: {
+    primary: "#1e8e3e", // Green color from the HEAL website
+    secondary: "#f5f5f5",
+    accent: "#e63946",
+  },
+  organization: {
+    name: "HEAL",
+    fullName: "Helping Ethiopia Achieve Longevity",
+    logo: "/logo.png", // This would be the actual logo path
+    mission: "To improve the lives of Ethiopians through sustainable development programs",
+    vision: "A prosperous Ethiopia where all citizens have access to basic needs and opportunities",
+  },
 }

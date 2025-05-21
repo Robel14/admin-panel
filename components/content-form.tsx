@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useTransition, useEffect } from "react"
+import { useState, useTransition, useEffect, useRef } from "react"
 import { FileText, ImageIcon, Video, Music, Users, FileIcon, Upload, X, Check, ExternalLink } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -34,6 +34,9 @@ export function ContentForm({ contentType, onSuccess }: ContentFormProps) {
   const [categories, setCategories] = useState<any[]>([])
   const [createdContentId, setCreatedContentId] = useState<number | null>(null)
   const [isDeploying, setIsDeploying] = useState(false)
+
+  // Add a form reference to safely reset the form
+  const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -194,7 +197,7 @@ export function ContentForm({ contentType, onSuccess }: ContentFormProps) {
         if (result.success) {
           setSuccess(true)
 
-          // Store the created content ID for preview
+          // Store the created content ID for preview if available
           if (result.data && result.data.id) {
             setCreatedContentId(result.data.id)
           }
@@ -219,7 +222,11 @@ export function ContentForm({ contentType, onSuccess }: ContentFormProps) {
 
             setFiles([])
             setPreview(null)
-            e.currentTarget.reset()
+
+            // Safely reset the form using the ref
+            if (formRef.current) {
+              formRef.current.reset()
+            }
 
             // Call onSuccess callback if provided
             if (onSuccess) {
@@ -281,7 +288,7 @@ export function ContentForm({ contentType, onSuccess }: ContentFormProps) {
 
               <p className="text-muted-foreground mb-6">{details.description}</p>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
                 {details.fields.includes("title") && (
                   <div className="space-y-2">
                     <Label htmlFor="title">Title</Label>
